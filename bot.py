@@ -1,11 +1,8 @@
-import os
 import asyncio
-from aiogram import Dispatcher, types, Bot
+from aiogram import Dispatcher, types, Bot, F
 from aiogram.filters import Command
-from dotenv import load_dotenv
 
-load_dotenv()
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+from config import BOT_TOKEN
 
 dp = Dispatcher()
 
@@ -24,6 +21,26 @@ async def start(message: types.Message):
     ]
     keyboard = types.ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
     await message.answer('Воспользуйся кнопками на клавиатуре для поиска информации.', reply_markup=keyboard)
+
+@dp.message(F.text == 'Найти игру')
+async def find_game_btn(message: types.Message):
+    pass
+
+@dp.message(F.text == 'Цены игр')
+async def game_prices_btn(message: types.Message):
+    pass
+
+@dp.message(F.text == 'Раздачи')
+async def distributions_btn(message: types.Message):
+    pass
+
+@dp.message(F.text == 'Новости')
+async def news_btn(message: types.Message):
+    pass
+
+@dp.message(F.text == 'Помощь')
+async def help_btn(message: types.Message):
+    pass
 
 async def main():
     bot = Bot(token=BOT_TOKEN)
