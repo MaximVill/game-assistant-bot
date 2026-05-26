@@ -1,5 +1,5 @@
 # Игровой ассистент (Game Deal & Info Bot)
-@GamerCompanionBot
+[@GamerCompanionBot](https://web.telegram.org/k/#@GamerCompanionBot)
 
 Telegram-бот для геймеров, предоставляющий:
 - **Поиск игр**: Подробная информация через API RAWG.
