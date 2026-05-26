@@ -1,14 +1,12 @@
 .env
 
-logs/
-
 __pycache__/
-*.pyc
-*.pyo
-.venv/
+*.py[cod]
 venv/
-*.egg-info/
+.venv/
 
-.idea/
+logs/*.log
+
 .vscode/
-*.DS_Store
+.idea/
+.DS_Store
