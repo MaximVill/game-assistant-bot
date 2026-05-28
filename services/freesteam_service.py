@@ -1,39 +1,47 @@
+import asyncio
 import aiohttp
 from bs4 import BeautifulSoup
 
-# Сервис для скрапинга раздач с freesteam.ru
+
 class FreeSteamService:
     URL = "https://freesteam.ru/"
 
-    # Сбор актуальных бесплатных раздач игр
+    def __init__(self, session: aiohttp.ClientSession):
+        self.session = session
+
     async def get_giveaways(self):
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.get(self.URL) as response:
-                    if response.status == 200:
-                        html = await response.text()
-                        soup = BeautifulSoup(html, "html.parser")
+        try:
+            async with self.session.get(self.URL) as response:
+                if response.status == 200:
+                    html_content = await response.text()
 
-                        giveaways = []
-                        # Используем более точные селекторы на основе анализа HTML
-                        links = soup.find_all("a", href=True)
-                        for link in links:
-                            href = link["href"]
-                            if "/razdacha-" in href:
-                                title = link.text.strip()
-                                if title:
-                                    full_link = href if href.startswith("http") else f"https://freesteam.ru{href}"
+                    # Переносим парсинг в отдельный поток, чтобы не блокировать бота
+                    soup = await asyncio.to_thread(BeautifulSoup, html_content, "html.parser")
+
+                    giveaways = []
+                    seen_links = set()
+                    links = soup.find_all("a", href=True)
+
+                    for link in links:
+                        href = link["href"]
+                        if "/razdacha-" in href:
+                            base_href = href.split('#')[0]
+                            title = link.text.strip()
+
+                            if (
+                                    title
+                                    and not title.isdigit()
+                                    and len(title) > 10
+                                    and title.lower() not in ["читать далее", "комментарии", "подробнее"]
+                            ):
+                                full_link = base_href if base_href.startswith(
+                                    "http") else f"https://freesteam.ru{base_href}"
+
+                                if full_link not in seen_links:
                                     giveaways.append({"title": title, "link": full_link})
+                                    seen_links.add(full_link)
 
-                        # Удаляем дубликаты, сохраняя порядок
-                        seen = set()
-                        unique_giveaways = []
-                        for g in giveaways:
-                            if g['link'] not in seen:
-                                unique_giveaways.append(g)
-                                seen.add(g['link'])
-
-                        return unique_giveaways[:10]
-                    return None
-            except Exception as e:
-                raise e
+                    return giveaways[:10]
+                return None
+        except Exception as e:
+            raise e

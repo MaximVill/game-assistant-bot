@@ -1,13 +1,14 @@
 from aiogram import Router, types, F
+from aiogram.filters import StateFilter
+from aiogram.fsm.context import FSMContext
 from services.freesteam_service import FreeSteamService
 from utils.logger import log_user_action
 
 router = Router()
-freesteam = FreeSteamService()
 
-# Обработчик кнопки 'Раздачи'
-@router.message(F.text == 'Раздачи')
-async def giveaways_handler(message: types.Message):
+@router.message(F.text == 'Раздачи', StateFilter("*"))
+async def giveaways_handler(message: types.Message, state: FSMContext, freesteam: FreeSteamService):
+    await state.clear()
     await message.answer('Загружаю актуальные раздачи...')
 
     try:

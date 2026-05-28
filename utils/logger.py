@@ -5,14 +5,7 @@ from datetime import datetime
 
 LOGS_DIR = "logs"
 
-# Асинхронное логирование действий пользователя с расширенной информацией об ошибках
 async def log_user_action(user_id: int, action: str, request: str, result: str, exception: Exception = None):
-    """
-    Логирует действия пользователя в индивидуальные файлы: logs/{user_id}.log.
-    Если передан объект exception, записывает полный стек вызовов (traceback).
-    """
-    os.makedirs(LOGS_DIR, exist_ok=True)
-
     log_file = os.path.join(LOGS_DIR, f"{user_id}.log")
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 

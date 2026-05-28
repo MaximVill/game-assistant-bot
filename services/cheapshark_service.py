@@ -1,48 +1,58 @@
 import aiohttp
 from config import CHEAPSHARK_BASE_URL
 
-# Сервис для работы с CheapShark API
 class CheapSharkService:
-    # Инициализация сервиса с базовым URL
-    def __init__(self):
+    def __init__(self, session: aiohttp.ClientSession):
         self.base_url = CHEAPSHARK_BASE_URL
+        self.session = session
+        self.stores_cache = {}
 
-    # Поиск внутреннего ID игры по названию
+    async def pre_fetch_stores(self):
+        """Скачивает и кэширует список магазинов при запуске бота."""
+        try:
+            stores = await self.get_stores()
+            if stores:
+                self.stores_cache = {s['storeID']: s['storeName'] for s in stores}
+        except Exception as e:
+            print(f"[Warning] Не удалось кэшировать магазины CheapShark: {e}")
+
     async def find_game_id(self, game_name: str):
-        params = {
-            "title": game_name
-        }
+        params = {"title": game_name}
+        try:
+            async with self.session.get(f"{self.base_url}/games", params=params) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if isinstance(data, list):
+                        results = data
+                    elif isinstance(data, dict) and "data" in data:
+                        results = data["data"]
+                    else:
+                        results = []
 
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.get(f"{self.base_url}/games", params=params) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        # CheapShark API возвращает список объектов
-                        if isinstance(data, list):
-                            results = data
-                        elif isinstance(data, dict) and "data" in data:
-                            results = data["data"]
-                        else:
-                            results = []
-
-                        if results and len(results) > 0:
-                            first_result = results[0]
-                            if isinstance(first_result, dict):
-                                return first_result.get("gameID")
-                        return None
+                    if results and len(results) > 0:
+                        first_result = results[0]
+                        if isinstance(first_result, dict):
+                            return first_result.get("gameID")
                     return None
-            except Exception as e:
-                # Ошибку теперь обрабатывает хендлер через логгер
-                raise e
+                return None
+        except Exception as e:
+            raise e
 
-    # Получение лучших предложений по ID игры
     async def get_best_deals(self, game_id: str):
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.get(f"{self.base_url}/game/{game_id}/dealist") as response:
-                    if response.status == 200:
-                        return await response.json()
-                    return None
-            except Exception as e:
-                raise e
+        params = {"id": game_id}
+        try:
+            async with self.session.get(f"{self.base_url}/games", params=params) as response:
+                if response.status == 200:
+                    return await response.json()
+                return None
+        except Exception as e:
+            raise e
+
+    async def get_stores(self):
+        try:
+            async with self.session.get(f"{self.base_url}/stores") as response:
+                if response.status == 200:
+                    return await response.json()
+                return None
+        except Exception as e:
+            raise e

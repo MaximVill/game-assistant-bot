@@ -1,13 +1,14 @@
 from aiogram import Router, types, F
+from aiogram.filters import StateFilter
+from aiogram.fsm.context import FSMContext
 from services.stopgame_service import StopGameService
 from utils.logger import log_user_action
 
 router = Router()
-stopgame = StopGameService()
 
-# Обработчик кнопки 'Новости'
-@router.message(F.text == 'Новости')
-async def news_handler(message: types.Message):
+@router.message(F.text == 'Новости', StateFilter("*"))
+async def news_handler(message: types.Message, state: FSMContext, stopgame: StopGameService):
+    await state.clear()
     await message.answer('Загружаю последние новости...')
 
     try:

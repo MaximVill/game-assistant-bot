@@ -1,11 +1,13 @@
-from aiogram import Router, types, F
-from aiogram.filters import Command
+from aiogram import Router, types
+from aiogram.filters import Command, StateFilter
+from aiogram.fsm.context import FSMContext
+from utils.logger import log_user_action
 
 router = Router()
 
-# Обработчик команды /start
-@router.message(Command('start'))
-async def start(message: types.Message):
+@router.message(Command('start'), StateFilter("*"))
+async def start(message: types.Message, state: FSMContext):
+    await state.clear()  # Сбрасываем любое активное состояние
     buttons = [
         [
             types.KeyboardButton(text='Найти игру'),
@@ -18,4 +20,6 @@ async def start(message: types.Message):
         [types.KeyboardButton(text='Помощь')]
     ]
     keyboard = types.ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
-    await message.answer('Воспользуйся кнопками на клавиатуре для поиска информации.', reply_markup=keyboard)
+    await message.answer('Введите название существующей игры и мы расскажем всю информацию о ней.\n'
+                         'Или же воспользуйся кнопками на клавиатуре для поиска и.т.д.', reply_markup=keyboard)
+    await log_user_action(message.from_user.id, "Start Command", "/start", "Keyboard sent")
