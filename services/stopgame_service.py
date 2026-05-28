@@ -1,15 +1,19 @@
 import asyncio
+import xml.etree.ElementTree as ET
 import aiohttp
-from bs4 import BeautifulSoup
 
 
 class StopGameService:
-    URL = "https://stopgame.ru/news"
+    # Основной источник (StopGame RSS)
+    PRIMARY_URL = "https://stopgame.ru/rss/news.xml"
+
+    # Резервный источник (PlayGround RSS — очень стабильный, без защиты от ботов)
+    FALLBACK_URL = "https://www.playground.ru/rss/news.xml"
 
     HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3",
+        "Accept": "application/xml, text/xml, */*",
+        "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
         "Referer": "https://stopgame.ru/"
     }
 
@@ -17,36 +21,50 @@ class StopGameService:
         self.session = session
 
     async def get_latest_news(self):
+        # 1. Пробуем получить новости из основного источника
+        news = await self._fetch_rss(self.PRIMARY_URL)
+        if news:
+            return news
+
+        # 2. Если основной источник недоступен/заблокирован, пробуем резервный
+        print("[Warning] Основной источник новостей заблокирован или недоступен. Пробую резервный...")
+        news = await self._fetch_rss(self.FALLBACK_URL)
+        return news
+
+    async def _fetch_rss(self, url: str):
         try:
-            async with self.session.get(self.URL, headers=self.HEADERS) as response:
+            # Ограничиваем время ожидания до 8 секунд
+            timeout = aiohttp.ClientTimeout(total=8)
+            async with self.session.get(url, headers=self.HEADERS, timeout=timeout) as response:
                 if response.status == 200:
-                    html_content = await response.text()
+                    # Читаем байты (response.read()) вместо текста.
+                    # Это предотвращает краш парсера при несовпадении кодировок XML.
+                    raw_data = await response.read()
 
-                    # Переносим парсинг в отдельный поток, чтобы не блокировать бота
-                    soup = await asyncio.to_thread(BeautifulSoup, html_content, "html.parser")
+                    root = await asyncio.to_thread(ET.fromstring, raw_data)
 
-                    news = []
-                    seen_links = set()
-                    links = soup.find_all("a", href=True)
+                    news_list = []
+                    for item in root.findall('.//item'):
+                        title_elem = item.find('title')
+                        link_elem = item.find('link')
 
-                    for link in links:
-                        href = link["href"]
-                        if "/show/" in href:
-                            title = " ".join(link.text.split())
+                        if title_elem is not None and link_elem is not None:
+                            title = " ".join(title_elem.text.split()) if title_elem.text else ""
+                            link = link_elem.text.strip() if link_elem.text else ""
 
-                            if title and len(title) > 12:
-                                full_link = href if href.startswith("http") else f"https://stopgame.ru{href}"
-                                if full_link not in seen_links:
-                                    news.append({"title": title, "link": full_link})
-                                    seen_links.add(full_link)
+                            if title and link:
+                                news_list.append({
+                                    "title": title,
+                                    "link": link
+                                })
 
-                            if len(news) >= 5:
-                                break
+                        if len(news_list) >= 5:
+                            break
 
-                        return news
-                    else:
-                        print(f"[StopGame Error] Server returned status code: {response.status}")
-                        return None
+                    return news_list
+                else:
+                    print(f"[News Service] Источник {url} вернул статус-код: {response.status}")
+                    return None
         except Exception as e:
-            print(f"[StopGame Error] Exception occurred: {e}")
-            raise e
+            print(f"[News Service] Ошибка при запросе к {url}: {e}")
+            return None
